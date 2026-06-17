@@ -5,7 +5,7 @@ A webcam-based mouse. Your hand is the cursor. Move your hand to move the cursor
 Work in progress. Goal: a smooth enough demo to control [Aim Labs](https://aimlabs.com/) Gridshot using just hand gestures via webcam.
 
 ## Status
-Core input pipeline working — hand tracking, relative cursor movement, smooth acceleration, pinch to click, clutch gesture. Currently tuning against Aim Lab.
+Core pipeline complete and tuned against Aim Lab Gridshot.
 
 ## Gestures
 - **Open palm** — move your hand to move the cursor.
@@ -13,7 +13,9 @@ Core input pipeline working — hand tracking, relative cursor movement, smooth 
 - **Fist** — clutch: pauses the cursor so you can reposition your hand without moving it.
 
 ## How it works
-The webcam feed goes to MediaPipe, which returns 21 hand landmarks per frame. Those landmarks drive two things: a gesture classifier (open palm / pinch / fist) and the cursor itself. Rather than mapping hand position straight to screen coordinates, we track the frame-to-frame movement of the index fingertip and feed that delta — smoothed with an exponential moving average and shaped by a speed-based acceleration curve — into `pydirectinput` as relative mouse movement. Relative deltas are what make the clutch possible: a fist simply stops the deltas from being sent, so you can recenter your hand mid-motion the same way you'd lift and reposition a real mouse.
+Webcam frames run through MediaPipe's hand landmark model, which tracks 21 points on the hand in real time. Those landmarks feed a gesture classifier that resolves one of three states — open palm (move), pinch (click), fist (clutch); the pinch test uses hysteresis, with separate thresholds for entering and exiting, so hovering near the boundary doesn't flicker between states.
+
+Cursor movement is delta-based rather than an absolute position mapping: each frame measures how much the hand moved, not where it is, which is what makes it feel like a mouse instead of a touchscreen. That delta runs through a smooth acceleration curve — slow hand movement maps to precise, low-sensitivity output and fast movement to high-sensitivity traversal, so you can aim carefully and reposition quickly without touching a setting — and an exponential moving average smooths out per-frame jitter. A fist clutches: it pauses cursor output without losing position, so you can reposition your hand freely, the same as lifting a mouse off the pad. The result goes out through `pydirectinput` as raw relative mouse movement, which is what games expect for camera control.
 
 ## Tuning
 The feel lives in a handful of constants — movement knobs in `cursor.py`, gesture thresholds in `gestures.py`:
@@ -22,7 +24,7 @@ The feel lives in a handful of constants — movement knobs in `cursor.py`, gest
 - **ACCEL_MAX_SPEED** — hand speed at which the multiplier reaches its high end.
 - **EMA_ALPHA** — smoothing strength; lower is smoother, higher is snappier.
 - **DEADZONE_PX** — minimum movement that registers, so a still hand doesn't drift.
-- **PINCH_THRESHOLD** — how close thumb and index must be to count as a pinch.
+- **PINCH_ON_THRESHOLD / PINCH_OFF_THRESHOLD** — how close thumb and index must be to start a pinch, and how far apart to end it; the gap stops flicker.
 
 ## Setup
 ```bash

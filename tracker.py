@@ -96,7 +96,7 @@ def run_sandbox(camera_index=0):
 
             timestamp_ms = int((time.time() - start) * 1000)
             landmarks, result = tracker.process(frame, timestamp_ms)
-            state = gestures.classify(landmarks) if landmarks else "unknown"
+            state = gestures.classify(landmarks, last_state == "pinch") if landmarks else "unknown"
 
             if state != last_state:
                 print(f"gesture: {state}")

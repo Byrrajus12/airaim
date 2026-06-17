@@ -27,9 +27,9 @@ EMA_ALPHA = 0.3      # delta smoothing, 0..1. Higher = snappier, lower = smoothe
 DEADZONE_PX = 2.0    # ignore fingertip movement smaller than this (camera pixels)
 # Acceleration: slow hand = precision, fast hand = big traversals. The
 # multiplier ramps smoothly from LOW to HIGH as speed climbs to ACCEL_MAX_SPEED.
-SENSITIVITY_LOW = 1.5    # multiplier for slow, precise movement
-SENSITIVITY_HIGH = 4.0   # multiplier at full speed for fast traversal
-ACCEL_MAX_SPEED = 16.0   # camera px/frame where the multiplier reaches HIGH
+SENSITIVITY_LOW = 3.0   # multiplier for slow, precise movement
+SENSITIVITY_HIGH = 3.0   # multiplier at full speed for fast traversal
+ACCEL_MAX_SPEED = 10.0   # camera px/frame where the multiplier reaches HIGH
 TRANSITION_SKIP_FRAMES = 3   # frames to ignore right after the hand opens, so
                              # the uncurl from a fist/pinch isn't read as motion
 NO_HAND_GRACE_FRAMES = 10    # max frames to keep coasting after the hand is lost
@@ -140,6 +140,7 @@ def run_cursor_sandbox(camera_index=0):
     tracker = HandTracker()
     motion = CursorMotion()
     cx, cy = WINDOW_W / 2, WINDOW_H / 2
+    last_state = "unknown"
     start = time.time()
 
     print("AirAim fake cursor running. Press 'q' in the window to quit.")
@@ -156,7 +157,8 @@ def run_cursor_sandbox(camera_index=0):
 
             timestamp_ms = int((time.time() - start) * 1000)
             landmarks, _ = tracker.process(frame, timestamp_ms)
-            state = gestures.classify(landmarks) if landmarks else "unknown"
+            state = gestures.classify(landmarks, last_state == "pinch") if landmarks else "unknown"
+            last_state = state
 
             dx, dy = motion.step(state, _fingertip(landmarks, w, h))
             cx, cy = _move_circle(cx, cy, dx, dy)
@@ -210,7 +212,7 @@ def run_live(camera_index=0):
 
             timestamp_ms = int((time.time() - start) * 1000)
             landmarks, result = tracker.process(frame, timestamp_ms)
-            state = gestures.classify(landmarks) if landmarks else "unknown"
+            state = gestures.classify(landmarks, last_state == "pinch") if landmarks else "unknown"
 
             dx, dy = motion.step(state, _fingertip(landmarks, w, h))
             idx, idy = round(dx), round(dy)

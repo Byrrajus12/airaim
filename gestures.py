@@ -34,8 +34,11 @@ FINGERS = [
 ]
 
 # --- Tunable thresholds (normalized to hand size, so scale-invariant) ---
-# Pinch: thumb-tip <-> index-tip distance, divided by hand scale.
-PINCH_THRESHOLD = 0.45
+# Pinch uses hysteresis on the thumb-tip <-> index-tip distance: enter pinch
+# only when closer than ON, exit only when farther than OFF. The gap between
+# them is a dead band that stops flicker when hovering near the boundary.
+PINCH_ON_THRESHOLD = 0.25
+PINCH_OFF_THRESHOLD = 0.35
 # A finger counts as "extended" when its tip is this much farther from the
 # wrist than its PIP joint (ratio of distances, >1 means extended).
 EXTEND_RATIO = 1.15
@@ -60,13 +63,19 @@ def _finger_extended(lm, pip_idx, tip_idx):
     return _dist(wrist, lm[tip_idx]) > _dist(wrist, lm[pip_idx]) * EXTEND_RATIO
 
 
-def is_pinch(lm):
+def is_pinch(lm, in_pinch=False):
+    """Hysteretic pinch test: the threshold loosens once already pinching."""
     scale = _hand_scale(lm)
-    return _dist(lm[THUMB_TIP], lm[INDEX_TIP]) / scale < PINCH_THRESHOLD
+    threshold = PINCH_OFF_THRESHOLD if in_pinch else PINCH_ON_THRESHOLD
+    return _dist(lm[THUMB_TIP], lm[INDEX_TIP]) / scale < threshold
 
 
-def classify(lm):
-    """Return the gesture state string for one hand's landmarks."""
+def classify(lm, in_pinch=False):
+    """Return the gesture state string for one hand's landmarks.
+
+    Pass the previous frame's pinch state as in_pinch so the pinch boundary
+    has hysteresis and doesn't flicker.
+    """
     if lm is None or len(lm) < 21:
         return "unknown"
 
@@ -80,7 +89,7 @@ def classify(lm):
         return "fist"
 
     # Pinch: thumb and index pad together while at least one finger is out.
-    if is_pinch(lm):
+    if is_pinch(lm, in_pinch):
         return "pinch"
 
     # Open palm: all four fingers extended.
